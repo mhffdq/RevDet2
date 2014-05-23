@@ -1,0 +1,10 @@
+jawiki.xml
+.git/
+jawiki*
+.idea/
+stax_test.iml
+RevDet2.iml
+.target/
+*.class
+*.iml
+*.jar
