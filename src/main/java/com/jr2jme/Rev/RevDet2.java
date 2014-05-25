@@ -96,7 +96,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             prev_text = new ArrayList<String>();
                             delmap = new HashMap<String, List<DelPos>>();
                             difflist = new ArrayList<List<String>>();
-                            //System.out.println(reader.getElementText());
+                            System.out.println(title);
                         } else {
                             //System.out.println(reader.getElementText());
                             isAimingArticle = false;
@@ -136,7 +136,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             incon = true;
                         }
                         if ("text".equals(reader.getName().getLocalPart())) {
-
+                            version++;
                             text=reader.getElementText();
                             //System.out.println(text);
                             //List<Future<List<String>>> futurelist = new ArrayList<Future<List<String>>>(NUMBER+1);
@@ -219,55 +219,69 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             prev_text=current_text;
 
                             prevwrite = whowrite;
+                            difflist.add(diff);
                             for (InsTerm term : instermlist) {//今追加した単語が
+                                Boolean isrevert=false;
                                 for (Map.Entry<String, List<DelPos>> del : delmap.entrySet()) {//消されたものだったか
+                                    if(isrevert){
+                                        break;
+                                    }
                                     if (del.getKey().equals(term.getTerm())) {//確かめて
                                         for (DelPos delpos : del.getValue()) {
-                                            int ue = delpos.getue();//文章の上と
+                                            int ue = 0;//文章の上と
                                             int shita = delpos.getshita();//下で
                                             int tmpue = delpos.getue();
                                             int tmpshita = delpos.getshita();
-                                            int preue = 0;
-                                            for (int x = version - delpos.getVersion(); x < version; x++) {//矛盾が出ないか確かめる
-                                                a = 0;
-                                                b = 0;
-                                                for (int y = 0; y < difflist.get(x).size(); y++) {
-                                                    String type = difflist.get(x).get(y);
-                                                    if (type.equals("+")) {
-                                                        tmpue++;
-                                                        tmpshita++;
-                                                        a++;
-                                                    } else if (type.equals("-")) {
-                                                        b++;
-                                                        tmpue--;
-                                                        tmpshita--;
-                                                    } else if (type.equals("|")) {
-                                                        if (b <= preue) {
-                                                            ue = tmpue;
+                                            int preue = delpos.getue();
+                                            int preshita=delpos.getshita();
+                                            if(version!=delpos.getVersion()) {
+                                                for (int x = delpos.getVersion()+1; x < version; x++) {//矛盾が出ないか確かめる
+                                                    a = 0;
+                                                    b = 0;
+                                                    Boolean isbreak=false;
+                                                    for (int y = 0; y < difflist.get(x).size(); y++) {
+                                                        String type = difflist.get(x).get(y);
+                                                        if (type.equals("+")) {
+                                                            tmpue++;
+                                                            tmpshita++;
+                                                            a++;
+                                                        } else if (type.equals("-")) {
+                                                            b++;
+                                                            tmpue--;
+                                                            tmpshita--;
+                                                        } else if (type.equals("|")) {
+                                                            if (b <= preue) {
+                                                                ue = tmpue;
+                                                            }
+                                                            if (b >= preshita) {
+                                                                shita = tmpshita;
+                                                                isbreak=true;
+                                                                break;
+                                                            }
+                                                            a++;
+                                                            b++;
                                                         }
-                                                        shita = tmpshita;
-                                                        if (a > shita) {
-                                                            break;//?
-                                                        }
-                                                        a++;
-                                                        b++;
                                                     }
+                                                    if (!isbreak) {
+                                                        shita = a;
+                                                    }
+                                                    preue = ue;
+                                                    preshita = shita;
                                                 }
-                                                preue = ue;
-                                            }
-
-                                            if (term.pos > ue && term.pos < shita) {
-                                                term.revertterm(delpos);
-                                                whowrite.revert(term.getPos(), delpos.deledver, delpos.getDelededitor());
-                                                System.out.println("delrev");
-                                                del.getValue().remove(delpos);
-                                                break;
+                                                if (term.pos > ue && term.pos < shita) {
+                                                    term.revertterm(delpos);
+                                                    whowrite.revert(term.getPos(), delpos.deledver, delpos.getDelededitor());
+                                                    System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getVersion());
+                                                    del.getValue().remove(delpos);
+                                                    isrevert=true;
+                                                    break;
+                                                }
                                             }
                                         }
-                                        System.out.println(term.getTerm());
+                                        //System.out.println(term.getTerm());
                                     }
                                 }
-                                difflist.add(diff);
+
                             }
                         }
 
