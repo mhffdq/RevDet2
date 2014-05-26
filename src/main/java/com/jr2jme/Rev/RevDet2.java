@@ -16,6 +16,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 //import org.atilika.kuromoji.Token;
 
@@ -79,6 +81,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             Map<String,List<DelPos>> delmap = new HashMap<String, List<DelPos>>();
             List<List<String>> difflist = new ArrayList<List<String>>();
             WhoWrite prevwrite=new WhoWrite();
+            List<Integer> editdistancelist=new ArrayList<Integer>();
             while(reader.hasNext()) {
                 // 4.1 次のイベントを取得
                 int eventType = reader.next();
@@ -96,6 +99,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             prev_text = new ArrayList<String>();
                             delmap = new HashMap<String, List<DelPos>>();
                             difflist = new ArrayList<List<String>>();
+                            editdistancelist=new ArrayList<Integer>();
                             System.out.println(title);
                         } else {
                             //System.out.println(reader.getElementText());
@@ -163,8 +167,12 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             List<String> current_text = new ArrayList<String>(tokens.size());
 
                             for(Token token:tokens){
-
-                                current_text.add(token.getSurface());
+                                String regex = "^[ -/:-@\\[-\\`\\{-\\~！”＃＄％＆’（）＝～｜‘｛＋＊｝＜＞？＿－＾￥＠「；：」、。・]+$";
+                                Pattern p1 = Pattern.compile(regex);
+                                Matcher m = p1.matcher(token.getSurface());
+                                if(!m.find()) {
+                                    current_text.add(token.getSurface());
+                                }
                             }
                             int i=0;
                             Levenshtein3 d = new Levenshtein3();
@@ -180,17 +188,26 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             List<String> yoyakued = new ArrayList<String>();
                             List<Integer> yoyakuver = new ArrayList<Integer>();
                             List<String> edlist = new ArrayList<String>();
+                            int editdistance=0;
+                            Map<Integer,Integer> editmap = new HashMap<Integer, Integer>();
                             //System.out.println(diff);
                             for (String type : diff) {
                                 if (type.equals("+")) {
                                     edlist.add(name);
                                     whowrite.add(current_text.get(a),name,version);
                                     instermlist.add(new InsTerm(current_text.get(a), a, name));
+                                    editdistance++;
                                     a++;
                                 } else if (type.equals("-")) {
                                     yoyakued.add(prevwrite.getEditorList().get(b));
                                     yoyakuver.add(prevwrite.getVerlist().get(b));
+                                    int cc=1;
+                                    if(editmap.containsKey(prevwrite.getVerlist().get(b))){
+                                        cc=editmap.get(prevwrite.getVerlist().get(b))+1;
+                                    }
+                                    editmap.put(prevwrite.getVerlist().get(b),cc);
                                     yoyaku.add(prev_text.get(b));
+                                    editdistance++;
                                     //System.out.println(prev_text.get(b));//リバートされるかもしれないリストに突っ込む準備
                                     //delterm.add(futurelist.get(c).get().get(a));
                                     //whowrite.delete(b,version);//追加した単語には位置とかいろいろ情報あって分かるので適当にやる
@@ -215,7 +232,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 }
 
                             }
-
+                            editdistancelist.add(editdistance);
                             prev_text=current_text;
 
                             prevwrite = whowrite;
@@ -235,7 +252,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                             int preue = delpos.getue();
                                             int preshita=delpos.getshita();
                                             if(version!=delpos.getVersion()) {
-                                                for (int x = delpos.getVersion()+1; x < version; x++) {//矛盾が出ないか確かめる
+                                                for (int x = delpos.getVersion()-1; x < version; x++) {//矛盾が出ないか確かめる
                                                     a = 0;
                                                     b = 0;
                                                     Boolean isbreak=false;
@@ -268,10 +285,13 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                                     preue = ue;
                                                     preshita = shita;
                                                 }
+                                                delpos.setShita(shita);
+                                                delpos.setUe(ue);
+                                                delpos.setVersion(version);
                                                 if (term.pos > ue && term.pos < shita) {
                                                     term.revertterm(delpos);
                                                     whowrite.revert(term.getPos(), delpos.deledver, delpos.getDelededitor());
-                                                    System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getVersion());
+                                                    System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getOriversion());
                                                     del.getValue().remove(delpos);
                                                     isrevert=true;
                                                     break;
@@ -464,7 +484,13 @@ class DelPos{
     String editor;
     int deledver;
     String delededitor;
+    int oriue;
+    int orishita;
+    int oriversion;
     public DelPos(int version,int ue,int shita,String editor,int deledver,String delededitor){
+        this.oriue=ue;
+        this.orishita=shita;
+        this.oriversion=version;
         this.ue=ue;
         this.shita=shita;
         this.version=version;
@@ -492,8 +518,24 @@ class DelPos{
         return deledver;
     }
 
+    public int getOriversion() {
+        return oriversion;
+    }
+
     public String getDelededitor() {
         return delededitor;
+    }
+
+    public void setUe(int ue) {
+        this.ue = ue;
+    }
+
+    public void setShita(int shita) {
+        this.shita = shita;
+    }
+
+    public void setVersion(int version) {
+        this.version = version;
     }
 }
 
