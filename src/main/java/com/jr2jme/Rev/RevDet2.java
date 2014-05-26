@@ -1,7 +1,9 @@
 package com.jr2jme.Rev;
 
 import com.jr2jme.st.UnBzip2;
-import com.mongodb.*;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.MongoClient;
 import net.java.sen.SenFactory;
 import net.java.sen.StringTagger;
 import net.java.sen.dictionary.Token;
@@ -15,7 +17,6 @@ import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -150,9 +151,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             List<InsTerm> instermlist = new ArrayList<InsTerm>();
                             WhoWrite whowrite = new WhoWrite();
                             List<String> edlist = new ArrayList<String>();
-                            int editdistance=0;
                             Map<Integer,Integer> editmap = new HashMap<Integer, Integer>();
-                            //System.out.println(diff);
                             diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,editdistancelist,prevwrite,editmap,prev_text,delmap);
                             prev_text=current_text;
                             prevwrite = whowrite;
@@ -300,6 +299,10 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                 if (del.getKey().equals(term.getTerm())) {//確かめて
                     for (int n=del.getValue().size()-1;n>=0;n--) {
                         DelPos delpos=del.getValue().get(n);
+                        if(delpos.getOriversion()<version-20){
+                            del.getValue().remove(delpos);
+                            break;
+                        }
                         int ue = 0;//文章の上と
                         int shita = delpos.getshita();//下で
                         int tmpue = delpos.getue();
@@ -411,63 +414,6 @@ class DiffPos {
         this.nowshita=nowshita;
     }
 }
-
-class Kaiseki implements Callable<List<String>> {//形態素解析
-    String wikitext;//gosenだとなんか駄目だった→kuromojimo別のでダメ
-    public Kaiseki(String wikitext){
-        this.wikitext=wikitext;
-    }
-    @Override
-    public List<String> call() {
-
-        StringTagger tagger = SenFactory.getStringTagger(null);
-        CompositeTokenFilter ctFilter = new CompositeTokenFilter();
-
-        try {
-            ctFilter.readRules(new BufferedReader(new StringReader("名詞-数")));
-            tagger.addFilter(ctFilter);
-
-            ctFilter.readRules(new BufferedReader(new StringReader("記号-アルファベット")));
-            tagger.addFilter(ctFilter);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        List<Token> tokens = new ArrayList<Token>();
-        try {
-            tokens=tagger.analyze(wikitext, tokens);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        List<String> current_text = new ArrayList<String>(tokens.size());
-
-        for(Token token:tokens){
-
-            current_text.add(token.getSurface());
-        }
-
-        return current_text;
-    }
-
-
-}
-
-class CalDiff implements Callable<List<String>> {//差分
-    List<String> current_text;
-    List<String> prev_text;
-    public CalDiff(List<String> current_text,List<String> prev_text,String title,int version,String name){
-        this.current_text=current_text;
-        this.prev_text=prev_text;
-    }
-    @Override
-    public List<String> call() {//並列で差分
-        Levenshtein3 d = new Levenshtein3();
-        List<String> diff = d.diff(prev_text, current_text);
-        return diff;
-    }
-}
-
 class InsTerm {
     String term;
     String editor;
