@@ -149,15 +149,17 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             prevwrite = whowrite;
                             difflist.add(diff);
                             delrevdet(instermlist,delmap,version,difflist,editmap,whowrite);
+                            List<Integer> revedlist=new ArrayList<Integer>();
                             for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){
-                                List<Integer> revedlist=new ArrayList<Integer>();
+
                                 if(editdistancelist.get(entry.getKey()-1)==entry.getValue()){
                                     revedlist.add(entry.getKey());
                                 }
-                                BasicDBObject obj = new BasicDBObject();
-                                obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
-                                dbCollection5.insert(obj);
+
                             }
+                            BasicDBObject obj = new BasicDBObject();
+                            obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
+                            dbCollection5.insert(obj);
                         }
 
                     }
