@@ -93,7 +93,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             delmap = new HashMap<String, List<DelPos>>();
                             difflist = new ArrayList<List<String>>();
                             editdistancelist=new ArrayList<Integer>();
-                            System.out.println(title);
+                            //System.out.println(title);
                         } else {
                             //System.out.println(reader.getElementText());
                             isAimingArticle = false;
