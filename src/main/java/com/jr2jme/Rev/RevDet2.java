@@ -44,7 +44,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             e.printStackTrace();
         }
         assert mongo != null;
-        DB db=mongo.getDB("revexp1");//1単語ごとにリバートか判定して消していく
+        DB db=mongo.getDB("revexp2");//1単語ごとにリバートか判定して消していく
         DBCollection dbCollection5=db.getCollection("Revert");
         Set<String> AimingArticle = fileRead("input.txt");
         XMLStreamReader reader = null;
