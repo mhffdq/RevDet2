@@ -1,6 +1,7 @@
 package com.jr2jme.Rev;
 
 import com.jr2jme.st.UnBzip2;
+import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.MongoClient;
@@ -43,17 +44,8 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             e.printStackTrace();
         }
         assert mongo != null;
-        DB db=mongo.getDB("wikipediaDB_kondou");
-        DBCollection dbCollection=db.getCollection("wikitext_Islam");
-        coll=db.getCollection("wikitext_Islam");
-        //coll = JacksonDBCollection.wrap(dbCollection, Wikitext.class, String.class);
-        DBCollection dbCollection2=db.getCollection("editor_term_Islam");
-        DBCollection dbCollection3=db.getCollection("Insertedterms_Islam");
-        DBCollection dbCollection4=db.getCollection("DeletedTerms_Islam");
-
-        //coll2 = JacksonDBCollection.wrap(dbCollection2, WhoWrite.class,String.class);
-        //coll3 = JacksonDBCollection.wrap(dbCollection3, InsertedTerms.class,String.class);
-        //coll4 = JacksonDBCollection.wrap(dbCollection4, DeletedTerms.class,String.class);
+        DB db=mongo.getDB("revexp1");//1単語ごとにリバートか判定して消していく
+        DBCollection dbCollection5=db.getCollection("Revert");
         Set<String> AimingArticle = fileRead("input.txt");
         XMLStreamReader reader = null;
         BufferedInputStream stream = null;
@@ -158,9 +150,13 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             difflist.add(diff);
                             delrevdet(instermlist,delmap,version,difflist,editmap,whowrite);
                             for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){
+                                List<Integer> revedlist=new ArrayList<Integer>();
                                 if(editdistancelist.get(entry.getKey()-1)==entry.getValue()){
-                                    System.out.println(version+"full revert"+entry.getKey());
+                                    revedlist.add(entry.getKey());
                                 }
+                                BasicDBObject obj = new BasicDBObject();
+                                obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
+                                dbCollection5.insert(obj);
                             }
                         }
 
@@ -189,14 +185,8 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             }
             mongo.close();
         }
-        /*RevDet wikidiff=new RevDet();
-        //wikititle= title;//タイトル取得
-        //Pattern pattern = Pattern.compile(title+"/log.+|"+title+"/history.+");
-        Cursor cur=null;
-        cur=wikidiff.wikidiff("アクバル");
-        cur.close();
-        mongo.close();
-        System.out.println("終了:"+arg[0]);*/
+
+
 
     }
 
