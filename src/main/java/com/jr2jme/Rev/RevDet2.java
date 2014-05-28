@@ -93,7 +93,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             delmap = new HashMap<String, List<DelPos>>();
                             difflist = new ArrayList<List<String>>();
                             editdistancelist=new ArrayList<Integer>();
-                            System.out.println(title);
+                            //System.out.println(title);
                         } else {
                             //System.out.println(reader.getElementText());
                             isAimingArticle = false;
@@ -148,16 +148,23 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             prev_text=current_text;
                             prevwrite = whowrite;
                             difflist.add(diff);
-                            delrevdet(instermlist,delmap,version,difflist,editmap,whowrite);
+                            Map<Integer,Map<String,List<DelPos>>> delposlistmap=new HashMap<Integer, Map<String, List<DelPos>>>();
+                            delrevdet(instermlist,delmap,version,difflist,editmap,whowrite,delposlistmap);
+                            List<Integer> revedlist=new ArrayList<Integer>();
                             for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){
-                                List<Integer> revedlist=new ArrayList<Integer>();
                                 if(editdistancelist.get(entry.getKey()-1)==entry.getValue()){
+                                    for(Map.Entry<String,List<DelPos>> del:delposlistmap.get(entry.getKey()).entrySet()){
+                                        for(DelPos delp:del.getValue()) {
+                                            delmap.get(del.getKey()).remove(delp);
+                                        }
+                                    }
                                     revedlist.add(entry.getKey());
                                 }
-                                BasicDBObject obj = new BasicDBObject();
-                                obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
-                                dbCollection5.insert(obj);
+
                             }
+                            BasicDBObject obj = new BasicDBObject();
+                            obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
+                            dbCollection5.insert(obj);
                         }
 
                     }
@@ -279,7 +286,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
 
     }
 
-    public static void delrevdet(List<InsTerm> instermlist,Map<String,List<DelPos>> delmap,int version,List<List<String>> difflist,Map<Integer,Integer>editmap,WhoWrite whowrite){
+    public static void delrevdet(List<InsTerm> instermlist,Map<String,List<DelPos>> delmap,int version,List<List<String>> difflist,Map<Integer,Integer>editmap,WhoWrite whowrite,Map<Integer,Map<String,List<DelPos>>> dellistmap){
         for (InsTerm term : instermlist) {//今追加した単語が
             Boolean isrevert=false;
             for (Map.Entry<String, List<DelPos>> del : delmap.entrySet()) {//消されたものだったか
@@ -340,12 +347,27 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 int cc=1;
                                 if(editmap.containsKey(delpos.deledver)){
                                     cc=editmap.get(delpos.deledver)+1;
+                                    Map<String,List<DelPos>> ma=dellistmap.get(delpos.deledver);
+                                    if(ma.containsKey(term.getTerm())) {
+                                        ma.get(term.getTerm()).add(delpos);
+                                    }
+                                    else{
+                                        List<DelPos> lis = new ArrayList<DelPos>();
+                                        ma.put(term.getTerm(),lis);
+                                    }
+                                }
+                                else{
+                                    List<DelPos> lis = new ArrayList<DelPos>();
+                                    lis.add(delpos);
+                                    Map<String,List<DelPos>> ma = new HashMap<String, List<DelPos>>();
+                                    ma.put(term.getTerm(),lis);
+                                    dellistmap.put(delpos.deledver,ma);
                                 }
                                 editmap.put(delpos.deledver,cc);
                                 term.revertterm(delpos);
                                 whowrite.revert(term.getPos(), delpos.deledver, delpos.getDelededitor());
                                 //System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getOriversion());
-                                del.getValue().remove(delpos);
+                                //del.getValue().remove(delpos);
                                 isrevert=true;
                                 break;
                             }
@@ -430,12 +452,6 @@ class InsTerm {
     }
 }
 
-class Delterm{
-    String term;
-    String editor;
-    int revedver=0;
-    String reveded;
-}
 
 class DelPos{
     int ue;
