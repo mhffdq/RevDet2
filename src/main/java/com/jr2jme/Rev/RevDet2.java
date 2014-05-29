@@ -157,9 +157,11 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 }
 
                             }
-                            BasicDBObject obj = new BasicDBObject();
-                            obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
-                            dbCollection5.insert(obj);
+                            if(!revedlist.isEmpty()) {
+                                BasicDBObject obj = new BasicDBObject();
+                                obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
+                                dbCollection5.insert(obj);
+                            }
                         }
 
                     }
