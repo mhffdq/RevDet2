@@ -18,8 +18,7 @@ import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.logging.Logger;
 
 //import org.atilika.kuromoji.Token;
 
@@ -70,11 +69,12 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             List<String> prev_text = new ArrayList<String>();
             int tail=0;
             int head;
-            List<WhoWrite> prevdata = null;
             Map<String,List<DelPos>> delmap = new HashMap<String, List<DelPos>>();
             List<List<String>> difflist = new ArrayList<List<String>>();
             WhoWrite prevwrite=new WhoWrite();
             List<Integer> editdistancelist=new ArrayList<Integer>();
+            Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+
             while(reader.hasNext()) {
                 // 4.1 次のイベントを取得
                 int eventType = reader.next();
@@ -87,7 +87,6 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                         if (AimingArticle.contains(title)) {/*AimingArticle.contains(title)*/
                             isAimingArticle = true;
                             version = 0;
-                            prevdata = null;
                             tail = 0;
                             prev_text = new ArrayList<String>();
                             delmap = new HashMap<String, List<DelPos>>();
@@ -151,17 +150,16 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             delrevdet(instermlist,delmap,version,difflist,editmap,whowrite);
                             List<Integer> revedlist=new ArrayList<Integer>();
                             for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){
-
                                 if(editdistancelist.get(entry.getKey()-1)==entry.getValue()){
                                     revedlist.add(entry.getKey());
                                 }
-
                             }
                             if(!revedlist.isEmpty()) {
                                 BasicDBObject obj = new BasicDBObject();
                                 obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
                                 dbCollection5.insert(obj);
                             }
+                            logger.info(title + " : " + version);
                         }
 
                     }
@@ -268,15 +266,15 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             e.printStackTrace();
         }
 
-        List<String> current_text = new ArrayList<String>(tokens.size());
+        List<String> current_text = new ArrayList<String>(tokens.size()+1);
 
         for(Token token:tokens){
-            String regex = "^[ -/:-@\\[-\\`\\{-\\~！”＃＄％＆’（）＝～｜‘｛＋＊｝＜＞？＿－＾￥＠「；：」、。・]+$";
+            /*String regex = "^[ -/:-@\\[-\\`\\{-\\~！”＃＄％＆’（）＝～｜‘｛＋＊｝＜＞？＿－＾￥＠「；：」、。・]+$";
             Pattern p1 = Pattern.compile(regex);
             Matcher m = p1.matcher(token.getSurface());
-            if(!m.find()) {
+            if(!m.find()) {*/
                 current_text.add(token.getSurface());
-            }
+            //}
         }
         return  current_text;
 
@@ -304,10 +302,10 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                         int preue = delpos.getue();
                         int preshita=delpos.getshita();
                         if(version!=delpos.getVersion()) {
-                            for (int x = delpos.getVersion()-1; x < version; x++) {//矛盾が出ないか確かめる
+                            for (int x = delpos.getVersion() - 1; x < version; x++) {//矛盾が出ないか確かめる
                                 int a = 0;
                                 int b = 0;
-                                Boolean isbreak=false;
+                                Boolean isbreak = false;
                                 for (int y = 0; y < difflist.get(x).size(); y++) {
                                     String type = difflist.get(x).get(y);
                                     if (type.equals("+")) {
@@ -324,7 +322,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                         }
                                         if (b >= preshita) {
                                             shita = tmpshita;
-                                            isbreak=true;
+                                            isbreak = true;
                                             break;
                                         }
                                         a++;
@@ -340,20 +338,21 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             delpos.setShita(shita);
                             delpos.setUe(ue);
                             delpos.setVersion(version);
-                            if (term.pos > ue && term.pos < shita) {
-                                int cc=1;
-                                if(editmap.containsKey(delpos.deledver)){
-                                    cc=editmap.get(delpos.deledver)+1;
-                                }
-                                editmap.put(delpos.deledver,cc);
-                                term.revertterm(delpos);
-                                whowrite.revert(term.getPos(), delpos.deledver, delpos.getDelededitor());
-                                //System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getOriversion());
-                                del.getValue().remove(delpos);
-                                isrevert=true;
-                                break;
-                            }
                         }
+                        if (term.pos > ue && term.pos < shita) {
+                            int cc=1;
+                            if(editmap.containsKey(delpos.deledver)){
+                                cc=editmap.get(delpos.deledver)+1;
+                            }
+                            editmap.put(delpos.deledver,cc);
+                            term.revertterm(delpos);
+                            whowrite.revert(term.getPos(), delpos.deledver, delpos.getDelededitor());
+                            //System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getOriversion());
+                            del.getValue().remove(delpos);
+                            isrevert=true;
+                            break;
+                        }
+
                     }
                     //System.out.println(term.getTerm());
                 }
