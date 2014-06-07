@@ -1,10 +1,7 @@
 package com.jr2jme.Rev;
 
 import com.jr2jme.st.UnBzip2;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.MongoClient;
+import com.mongodb.*;
 import net.java.sen.SenFactory;
 import net.java.sen.StringTagger;
 import net.java.sen.dictionary.Token;
@@ -18,7 +15,6 @@ import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.logging.Logger;
 
 //import org.atilika.kuromoji.Token;
 
@@ -73,8 +69,6 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             List<List<String>> difflist = new ArrayList<List<String>>();
             WhoWrite prevwrite=new WhoWrite();
             List<Integer> editdistancelist=new ArrayList<Integer>();
-            Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-
             while(reader.hasNext()) {
                 // 4.1 次のイベントを取得
                 int eventType = reader.next();
@@ -83,16 +77,22 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                     if ("title".equals(reader.getName().getLocalPart())) {
                         //System.out.println(reader.getElementText());
                         title = reader.getElementText();
-                        //System.out.println(title);
+                        System.out.println(title);
                         if (AimingArticle.contains(title)) {/*AimingArticle.contains(title)*/
-                            isAimingArticle = true;
+                            //logger.config(title);
                             version = 0;
                             tail = 0;
+                            BasicDBObject obj = new BasicDBObject();
+                            obj.append("title", title);
+                            DBCursor cur = dbCollection5.find(obj).limit(1);
+                            if(!cur.hasNext()){
+                                isAimingArticle = true;
+                            }
                             prev_text = new ArrayList<String>();
                             delmap = new HashMap<String, List<DelPos>>();
                             difflist = new ArrayList<List<String>>();
                             editdistancelist=new ArrayList<Integer>();
-                            //System.out.println(title);
+
                         } else {
                             //System.out.println(reader.getElementText());
                             isAimingArticle = false;
@@ -160,7 +160,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
                                 dbCollection5.insert(obj);
                             }
-                            logger.info(title + " : " + version);
+                            System.out.println(title + " : " + version);
                         }
 
                     }
@@ -201,6 +201,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         List<String> yoyaku = new ArrayList<String>();
         List<String> yoyakued = new ArrayList<String>();
         List<Integer> yoyakuver = new ArrayList<Integer>();
+        difflist.add(diff);
         for (String type : diff) {
             if (type.equals("+")) {
                 edlist.add(name);
@@ -243,7 +244,6 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             }
 
         }
-        difflist.add(diff);
         eddlist.add(editdistance);
 
     }
