@@ -386,22 +386,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
     }
 }
 
-class DiffPos {
-    List<String> del;
-    List<String> insert;
-    int preue;
-    int preshita;
-    int nowue;
-    int nowshita;
-    public DiffPos(List<String> insert, List<String> del, int preue, int preshita, int nowue, int nowshita){
-        this.del=del;
-        this.insert=insert;
-        this.preue=preue;
-        this.preshita=preshita;
-        this.nowue=nowue;
-        this.nowshita=nowshita;
-    }
-}
+
 class InsTerm {
     String term;
     String editor;
