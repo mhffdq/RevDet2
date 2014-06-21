@@ -65,7 +65,8 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             List<String> prev_text = new ArrayList<String>();
             int tail=0;
             int head;
-            Map<String,List<DelPos>> delmap = new HashMap<String, List<DelPos>>();
+            List<Map<String,DelPos>> dellist = new LinkedList<Map<String, DelPos>>();
+            //Map<String,List<DelPos>> delmap = new HashMap<String, List<DelPos>>();
             List<List<String>> difflist = new ArrayList<List<String>>();
             WhoWrite prevwrite=new WhoWrite();
             List<Integer> editdistancelist=new ArrayList<Integer>();
@@ -89,8 +90,9 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 isAimingArticle = true;
                             }
                             prev_text = new ArrayList<String>();
-                            delmap = new HashMap<String, List<DelPos>>();
-                            difflist = new ArrayList<List<String>>();
+                            dellist = new LinkedList<Map<String, DelPos>>();
+                            //delmap = new HashMap<String, List<DelPos>>();
+                            difflist = new LinkedList<List<String>>();
                             editdistancelist=new ArrayList<Integer>();
 
                         } else {
@@ -143,7 +145,8 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             WhoWrite whowrite = new WhoWrite();
                             List<String> edlist = new ArrayList<String>();
                             Map<Integer,Integer> editmap = new HashMap<Integer, Integer>();
-                            diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,editdistancelist,prevwrite,editmap,prev_text,delmap,difflist);
+                            diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,editdistancelist,prevwrite,editmap,prev_text,dellist,difflist);
+                            kousin(dellist,difflist);
                             prev_text=current_text;
                             prevwrite = whowrite;
                             if(version>22){
@@ -247,6 +250,44 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         eddlist.add(editdistance);
 
     }
+    public static void kousin(List<Map<String,DelPos>> dellist,List<List<String>> difflist){
+        for (int x = delpos.getVersion() - 1; x < version; x++) {//矛盾が出ないか確かめる
+            int a = 0;
+            int b = 0;
+            Boolean isbreak = false;
+            for (int y = 0; y < difflist.get(x).size(); y++) {
+                String type = difflist.get(x).get(y);
+                if (type.equals("+")) {
+                    tmpue++;
+                    tmpshita++;
+                    a++;
+                } else if (type.equals("-")) {
+                    b++;
+                    tmpue--;
+                    tmpshita--;
+                } else if (type.equals("|")) {
+                    if (b <= preue) {
+                        ue = tmpue;
+                    }
+                    if (b >= preshita) {
+                        shita = tmpshita;
+                        isbreak = true;
+                        break;
+                    }
+                    a++;
+                    b++;
+                }
+            }
+            if (!isbreak) {
+                shita = a;
+            }
+            preue = ue;
+            preshita = shita;
+        }
+        delpos.setShita(shita);
+        delpos.setUe(ue);
+        delpos.setVersion(version);
+    }
 
     public static List<String> kaiseki(String text){
         StringTagger tagger = SenFactory.getStringTagger(null);
@@ -301,42 +342,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                     int preue = delpos.getue();
                     int preshita = delpos.getshita();
                     if (version != delpos.getVersion()) {
-                        for (int x = delpos.getVersion() - 1; x < version; x++) {//矛盾が出ないか確かめる
-                            int a = 0;
-                            int b = 0;
-                            Boolean isbreak = false;
-                            for (int y = 0; y < difflist.get(x).size(); y++) {
-                                String type = difflist.get(x).get(y);
-                                if (type.equals("+")) {
-                                    tmpue++;
-                                    tmpshita++;
-                                    a++;
-                                } else if (type.equals("-")) {
-                                    b++;
-                                    tmpue--;
-                                    tmpshita--;
-                                } else if (type.equals("|")) {
-                                    if (b <= preue) {
-                                        ue = tmpue;
-                                    }
-                                    if (b >= preshita) {
-                                        shita = tmpshita;
-                                        isbreak = true;
-                                        break;
-                                    }
-                                    a++;
-                                    b++;
-                                }
-                            }
-                            if (!isbreak) {
-                                shita = a;
-                            }
-                            preue = ue;
-                            preshita = shita;
-                        }
-                        delpos.setShita(shita);
-                        delpos.setUe(ue);
-                        delpos.setVersion(version);
+
                     }
                     if (term.pos > ue && term.pos < shita) {
                         int cc = 1;
