@@ -40,7 +40,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         }
         assert mongo != null;
         DB db=mongo.getDB("revexp1");//1単語ごとにリバートか判定して消していく
-        DBCollection dbCollection5=db.getCollection("Revert");
+        DBCollection dbCollection5=db.getCollection("Revert2");
         Set<String> AimingArticle = fileRead("input.txt");
         XMLStreamReader reader = null;
         BufferedInputStream stream = null;
@@ -65,11 +65,12 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             List<String> prev_text = new ArrayList<String>();
             int tail=0;
             int head;
-            List<Map<String,DelPos>> dellist = new LinkedList<Map<String, DelPos>>();
-            //Map<String,List<DelPos>> delmap = new HashMap<String, List<DelPos>>();
+            Map<String,List<DelPos>> delmap = new HashMap<String, List<DelPos>>();
             List<List<String>> difflist = new ArrayList<List<String>>();
             WhoWrite prevwrite=new WhoWrite();
-            List<Integer> editdistancelist=new ArrayList<Integer>();
+            List<Integer> addnumlist=new ArrayList<Integer>();
+            List<Integer> delnumlist=new ArrayList<Integer>();
+            Boolean endflag=false;
             while(reader.hasNext()) {
                 // 4.1 次のイベントを取得
                 int eventType = reader.next();
@@ -78,8 +79,11 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                     if ("title".equals(reader.getName().getLocalPart())) {
                         //System.out.println(reader.getElementText());
                         title = reader.getElementText();
-                        System.out.println(title);
-                        if (AimingArticle.contains(title)) {/*AimingArticle.contains(title)*/
+                        if(endflag){
+                            break;
+                        }
+                        //System.out.println(title);
+                        if (title.equals("エジプト")) {/*AimingArticle.contains(title)*/
                             //logger.config(title);
                             version = 0;
                             tail = 0;
@@ -90,10 +94,11 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 isAimingArticle = true;
                             }
                             prev_text = new ArrayList<String>();
-                            dellist = new LinkedList<Map<String, DelPos>>();
-                            //delmap = new HashMap<String, List<DelPos>>();
-                            difflist = new LinkedList<List<String>>();
-                            editdistancelist=new ArrayList<Integer>();
+                            delmap = new HashMap<String, List<DelPos>>();
+                            difflist = new ArrayList<List<String>>();
+                            addnumlist=new ArrayList<Integer>();
+                            delnumlist=new ArrayList<Integer>();
+                            endflag=true;
 
                         } else {
                             //System.out.println(reader.getElementText());
@@ -144,20 +149,40 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             List<InsTerm> instermlist = new ArrayList<InsTerm>();
                             WhoWrite whowrite = new WhoWrite();
                             List<String> edlist = new ArrayList<String>();
-                            Map<Integer,Integer> editmap = new HashMap<Integer, Integer>();
-                            diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,editdistancelist,prevwrite,editmap,prev_text,dellist,difflist);
-                            kousin(dellist,difflist);
+                            Map<Integer,Integer> addmap = new HashMap<Integer, Integer>();
+                            Map<Integer,Integer> delnummap = new HashMap<Integer, Integer>();
+                            Map<Integer,List<DelPos>> delposmap = new HashMap<Integer, List<DelPos>>();
+                            diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,addnumlist,delnumlist,prevwrite,addmap,delnummap,prev_text,delmap,difflist,delposmap);
                             prev_text=current_text;
                             prevwrite = whowrite;
                             if(version>22){
                                 difflist.set(version-22,new ArrayList<String>(0));
                             }
                             List<Integer> revedlist=new ArrayList<Integer>();
-                            for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){
-                                if(editdistancelist.get(entry.getKey()-1)==entry.getValue()){
-                                    revedlist.add(entry.getKey());
+                            for(int cc=1;cc<20;cc++){
+                                if(addmap.containsKey(version-cc)&&delnummap.containsKey(version-cc)) {
+                                    if (delnumlist.get(version - cc).equals(addmap.get(version - cc)) && addnumlist.get(version - cc).equals(delnummap.get(version - cc))) {
+                                        List<DelPos> lisdel = delposmap.get(version - cc);
+                                        for (DelPos del : lisdel) {
+                                            delmap.get(del.getTerm()).remove(del);
+                                        }
+                                        revedlist.add(version - cc);
+                                    }
+                                }else if(addmap.containsKey(version-cc)&&!delnummap.containsKey(version-cc)&&addnumlist.get(version-cc)==0){
+                                    if(delnumlist.get(version - cc).equals(addmap.get(version - cc))){
+                                        List<DelPos> lisdel = delposmap.get(version - cc);
+                                        for (DelPos del : lisdel) {
+                                            delmap.get(del.getTerm()).remove(del);
+                                        }
+                                        revedlist.add(version - cc);
+                                    }
+                                }else if(!addmap.containsKey(version-cc)&&delnummap.containsKey(version-cc)&&delnumlist.get(version-cc)==0){
+                                    if(addnumlist.get(version - cc).equals(delnummap.get(version - cc))){
+                                        revedlist.add(version - cc);
+                                    }
                                 }
                             }
+                            
                             if(!revedlist.isEmpty()) {
                                 BasicDBObject obj = new BasicDBObject();
                                 obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
@@ -196,10 +221,11 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
 
     }
 
-    public static void diffroop(List<String> diff, List<String>edlist,String name,WhoWrite whowrite,List<String> current_text,int version,List<InsTerm> instermlist,List<Integer>eddlist,WhoWrite prevwrite,Map<Integer,Integer>editmap,List<String> prev_text,Map<String,List<DelPos>>delmap,List<List<String>> difflist){
+    public static void diffroop(List<String> diff, List<String>edlist,String name,WhoWrite whowrite,List<String> current_text,int version,List<InsTerm> instermlist,List<Integer>addlist,List<Integer>dellist,WhoWrite prevwrite,Map<Integer,Integer>addmap,Map<Integer,Integer>delnummap,List<String> prev_text,Map<String,List<DelPos>>delmap,List<List<String>> difflist,Map<Integer,List<DelPos>> delposmap){
         int a=0;
         int b=0;
-        int editdistance=0;
+        int add=0;
+        int del=0;
         int tmp=0;
         List<String> yoyaku = new ArrayList<String>();
         List<String> yoyakued = new ArrayList<String>();
@@ -210,19 +236,21 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                 edlist.add(name);
                 whowrite.add(current_text.get(a),name,version);
                 instermlist.add(new InsTerm(current_text.get(a), a, name));
-                delrevdet(new InsTerm(current_text.get(a), a, name),delmap,version,difflist,editmap,whowrite);
-                editdistance++;
+                delrevdet(new InsTerm(current_text.get(a), a, name), delmap, version, difflist, addmap, whowrite,delposmap);
+                add++;
                 a++;
             } else if (type.equals("-")) {
                 yoyakued.add(prevwrite.getEditorList().get(b));
                 yoyakuver.add(prevwrite.getVerlist().get(b));
-                int cc=1;
-                if(editmap.containsKey(prevwrite.getVerlist().get(b))){
-                    cc=editmap.get(prevwrite.getVerlist().get(b))+1;
+                if(version-prevwrite.getVerlist().get(b)<21) {
+                    int cc = 1;
+                    if (delnummap.containsKey(prevwrite.getVerlist().get(b))) {
+                        cc = delnummap.get(prevwrite.getVerlist().get(b)) + 1;
+                    }
+                    delnummap.put(prevwrite.getVerlist().get(b), cc);
                 }
-                editmap.put(prevwrite.getVerlist().get(b),cc);
                 yoyaku.add(prev_text.get(b));
-                editdistance++;
+                del++;
                 //System.out.println(prev_text.get(b));//リバートされるかもしれないリストに突っ込む準備
                 //delterm.add(futurelist.get(c).get().get(a));
                 //whowrite.delete(b,version);//追加した単語には位置とかいろいろ情報あって分かるので適当にやる
@@ -231,11 +259,11 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                 for (int p = 0; p < yoyaku.size(); p++) {
                     if (delmap.containsKey(yoyaku.get(p))) {
                         List<DelPos> list = delmap.get(yoyaku.get(p));
-                        DelPos pos = new DelPos(version, tmp, b, name, yoyakuver.get(p), yoyakued.get(p));
+                        DelPos pos = new DelPos(version, tmp, b, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
                         list.add(pos);
                     } else {
                         List<DelPos> list = new LinkedList<DelPos>();
-                        DelPos pos = new DelPos(version, tmp, b, name, yoyakuver.get(p), yoyakued.get(p));
+                        DelPos pos = new DelPos(version, tmp, b, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
                         list.add(pos);
                         delmap.put(yoyaku.get(p), list);
                     }
@@ -247,46 +275,9 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             }
 
         }
-        eddlist.add(editdistance);
+        addlist.add(add);
+        dellist.add(del);
 
-    }
-    public static void kousin(List<Map<String,DelPos>> dellist,List<List<String>> difflist){
-        for (int x = delpos.getVersion() - 1; x < version; x++) {//矛盾が出ないか確かめる
-            int a = 0;
-            int b = 0;
-            Boolean isbreak = false;
-            for (int y = 0; y < difflist.get(x).size(); y++) {
-                String type = difflist.get(x).get(y);
-                if (type.equals("+")) {
-                    tmpue++;
-                    tmpshita++;
-                    a++;
-                } else if (type.equals("-")) {
-                    b++;
-                    tmpue--;
-                    tmpshita--;
-                } else if (type.equals("|")) {
-                    if (b <= preue) {
-                        ue = tmpue;
-                    }
-                    if (b >= preshita) {
-                        shita = tmpshita;
-                        isbreak = true;
-                        break;
-                    }
-                    a++;
-                    b++;
-                }
-            }
-            if (!isbreak) {
-                shita = a;
-            }
-            preue = ue;
-            preshita = shita;
-        }
-        delpos.setShita(shita);
-        delpos.setUe(ue);
-        delpos.setVersion(version);
     }
 
     public static List<String> kaiseki(String text){
@@ -325,36 +316,80 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
 
     }
 
-    public static void delrevdet(InsTerm term,Map<String,List<DelPos>> delmap,int version,List<List<String>> difflist,Map<Integer,Integer>editmap,WhoWrite whowrite){
+    public static void delrevdet(InsTerm term,Map<String,List<DelPos>> delmap,int version,List<List<String>> difflist,Map<Integer,Integer>addmap,WhoWrite whowrite,Map<Integer,List<DelPos>> delposmap){
         //今追加した単語が
         if(delmap.containsKey(term.getTerm())) {//消されたものだったか
             List<DelPos> del = delmap.get(term.getTerm());//確かめて
             for (ListIterator<DelPos> i = del.listIterator(del.size()); i.hasPrevious();) {
                 DelPos delpos = i.previous();
-                if (delpos.getOriversion() < version - 20) {
+                if (delpos.getOriversion() < (version - 20)&&delpos.getRevert()!=version) {
                     i.remove();
                 }
                 else {
                     int ue = 0;//文章の上と
                     int shita = delpos.getshita();//下で
-                    int tmpue = delpos.getue();
-                    int tmpshita = delpos.getshita();
                     int preue = delpos.getue();
                     int preshita = delpos.getshita();
                     if (version != delpos.getVersion()) {
-
+                        for (int x = delpos.getVersion() - 1; x < version; x++) {//矛盾が出ないか確かめる
+                            int a = 0;
+                            int b = 0;
+                            int tmpue=preue;
+                            int tmpshita=preshita;
+                            Boolean isbreak = false;
+                            for (int y = 0; y < difflist.get(x).size(); y++) {
+                                String type = difflist.get(x).get(y);
+                                if (type.equals("+")) {
+                                    tmpue++;
+                                    tmpshita++;
+                                    a++;
+                                } else if (type.equals("-")) {
+                                    b++;
+                                    tmpue--;
+                                    tmpshita--;
+                                } else if (type.equals("|")) {
+                                    if (b <= preue) {
+                                        ue = tmpue;
+                                    }
+                                    if (b >= preshita) {
+                                        shita = tmpshita;
+                                        isbreak = true;
+                                        break;
+                                    }
+                                    a++;
+                                    b++;
+                                }
+                            }
+                            if (!isbreak) {
+                                shita = a;
+                            }
+                            preue = ue;
+                            preshita = shita;
+                        }
+                        delpos.setShita(shita);
+                        delpos.setUe(ue);
+                        delpos.setVersion(version);
                     }
                     if (term.pos > ue && term.pos < shita) {
                         int cc = 1;
-                        if (editmap.containsKey(delpos.deledver)) {
-                            cc = editmap.get(delpos.deledver) + 1;
+                        delpos.setRevert(version);
+                        if (addmap.containsKey(delpos.getOriversion())) {
+                            cc = addmap.get(delpos.getOriversion()) + 1;
                         }
-                        editmap.put(delpos.deledver, cc);
+                        addmap.put(delpos.getOriversion(), cc);
+                        if(delposmap.containsKey(delpos.getOriversion())){
+                            delposmap.get(delpos.getOriversion()).add(delpos);
+                        }
+                        else{
+                            List<DelPos> delposlist = new LinkedList<DelPos>();
+                            delposlist.add(delpos);
+                            delposmap.put(delpos.getOriversion(),delposlist);
+                        }
                         term.revertterm(delpos);
-                        whowrite.revert(term.getPos(), delpos.deledver, delpos.getDelededitor());
+                        whowrite.revert(term.getPos(), delpos.getOriversion(), delpos.getDelededitor());
                         //System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getOriversion());
-                        i.remove();
-                        break;
+                        //i.remove();
+                        return;
                     }
                 }
                 //System.out.println(term.getTerm());
@@ -395,11 +430,9 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
 
 class InsTerm {
     String term;
-    String editor;
     int pos;
     Boolean isRevert=false;
     Integer revedver=null;
-    String reveded;
     public InsTerm(String term,int pos,String editor){
         this.term=term;
         this.pos=pos;
@@ -407,7 +440,6 @@ class InsTerm {
     public void revertterm(DelPos delpos){
         isRevert=true;
         revedver=delpos.getVersion();
-        reveded=delpos.getEditor();
     }
 
     public String getTerm() {
@@ -423,13 +455,14 @@ class DelPos{
     int ue;
     int shita;
     int version;
-    String editor;
+    String term;
     int deledver;
     String delededitor;
     int oriue;
     int orishita;
     int oriversion;
-    public DelPos(int version,int ue,int shita,String editor,int deledver,String delededitor){
+    int revert=0;
+    public DelPos(int version,int ue,int shita,String term,int deledver,String delededitor){
         this.oriue=ue;
         this.orishita=shita;
         this.oriversion=version;
@@ -437,9 +470,15 @@ class DelPos{
         this.shita=shita;
         this.version=version;
         this.delededitor=delededitor;
-        this.editor=editor;
+        this.term=term;
         this.deledver=deledver;
     }
+    public int getRevert(){return revert;}
+
+    public void setRevert(int revert) {
+        this.revert = revert;
+    }
+
     public int getue() {
         return ue;
     }
@@ -452,8 +491,8 @@ class DelPos{
         return version;
     }
 
-    public String getEditor() {
-        return editor;
+    public String getTerm() {
+        return term;
     }
 
     public int getDeledver() {
