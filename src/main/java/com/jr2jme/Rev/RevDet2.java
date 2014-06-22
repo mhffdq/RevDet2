@@ -159,18 +159,30 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 difflist.set(version-22,new ArrayList<String>(0));
                             }
                             List<Integer> revedlist=new ArrayList<Integer>();
-                            Boolean revflag=false;
-                            for(Map.Entry<Integer,Integer> entry:addmap.entrySet()){
-                                if(delnumlist.get(entry.getKey()-1)==entry.getValue()){
-                                    if(delposmap.containsKey(entry.getKey())) {
-                                        List<DelPos> lisdel = delposmap.get(entry.getKey());
+                            for(int cc=1;cc<20;cc++){
+                                if(addmap.containsKey(version-cc)&&delnummap.containsKey(version-cc)) {
+                                    if (delnumlist.get(version - cc).equals(addmap.get(version - cc)) && addnumlist.get(version - cc).equals(delnummap.get(version - cc))) {
+                                        List<DelPos> lisdel = delposmap.get(version - cc);
                                         for (DelPos del : lisdel) {
                                             delmap.get(del.getTerm()).remove(del);
                                         }
+                                        revedlist.add(version - cc);
                                     }
-                                    revedlist.add(entry.getKey());
+                                }else if(addmap.containsKey(version-cc)&&!delnummap.containsKey(version-cc)&&addnumlist.get(version-cc)==0){
+                                    if(delnumlist.get(version - cc).equals(addmap.get(version - cc))){
+                                        List<DelPos> lisdel = delposmap.get(version - cc);
+                                        for (DelPos del : lisdel) {
+                                            delmap.get(del.getTerm()).remove(del);
+                                        }
+                                        revedlist.add(version - cc);
+                                    }
+                                }else if(!addmap.containsKey(version-cc)&&delnummap.containsKey(version-cc)&&delnumlist.get(version-cc)==0){
+                                    if(addnumlist.get(version - cc).equals(delnummap.get(version - cc))){
+                                        revedlist.add(version - cc);
+                                    }
                                 }
                             }
+                            
                             if(!revedlist.isEmpty()) {
                                 BasicDBObject obj = new BasicDBObject();
                                 obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
@@ -304,7 +316,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
 
     }
 
-    public static void delrevdet(InsTerm term,Map<String,List<DelPos>> delmap,int version,List<List<String>> difflist,Map<Integer,Integer>editmap,WhoWrite whowrite,Map<Integer,List<DelPos>> delposmap){
+    public static void delrevdet(InsTerm term,Map<String,List<DelPos>> delmap,int version,List<List<String>> difflist,Map<Integer,Integer>addmap,WhoWrite whowrite,Map<Integer,List<DelPos>> delposmap){
         //今追加した単語が
         if(delmap.containsKey(term.getTerm())) {//消されたものだったか
             List<DelPos> del = delmap.get(term.getTerm());//確かめて
@@ -361,10 +373,10 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                     if (term.pos > ue && term.pos < shita) {
                         int cc = 1;
                         delpos.setRevert(version);
-                        if (editmap.containsKey(delpos.getOriversion())) {
-                            cc = editmap.get(delpos.getOriversion()) + 1;
+                        if (addmap.containsKey(delpos.getOriversion())) {
+                            cc = addmap.get(delpos.getOriversion()) + 1;
                         }
-                        editmap.put(delpos.getOriversion(), cc);
+                        addmap.put(delpos.getOriversion(), cc);
                         if(delposmap.containsKey(delpos.getOriversion())){
                             delposmap.get(delpos.getOriversion()).add(delpos);
                         }
