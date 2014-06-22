@@ -40,7 +40,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         }
         assert mongo != null;
         DB db=mongo.getDB("revexp1");//1単語ごとにリバートか判定して消していく
-        DBCollection dbCollection5=db.getCollection("Revert2");
+        DBCollection dbCollection5=db.getCollection("Revert3");
         Set<String> AimingArticle = fileRead("input.txt");
         XMLStreamReader reader = null;
         BufferedInputStream stream = null;
@@ -153,25 +153,21 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             prev_text=current_text;
                             prevwrite = whowrite;
                             if(version>22){
-                                difflist.set(version-22,new ArrayList<String>(0));
+                                difflist.set(version-22,new LinkedList<String>());
                             }
-                            List<Integer> revedlist=new ArrayList<Integer>();
 
                             for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){
                                 if(entry.getValue()==editlist.get(entry.getKey()-1)){
-                                    List<DelPos> lisdel = delposmap.get(entry.getKey());
-                                    for (DelPos del : lisdel) {
-                                        delmap.get(del.getTerm()).remove(del);
+                                    if(delposmap.containsKey(entry.getKey())) {
+                                        List<DelPos> lisdel = delposmap.get(entry.getKey());
+                                        for (DelPos del : lisdel) {
+                                            delmap.get(del.getTerm()).remove(del);
+                                        }
                                     }
-                                    revedlist.add(entry.getKey());
+                                    BasicDBObject obj = new BasicDBObject();
+                                    obj.append("title", title).append("version", version).append("editor", name).append("rvted", entry.getKey());
+                                    dbCollection5.insert(obj);
                                 }
-                            }
-
-                            
-                            if(!revedlist.isEmpty()) {
-                                BasicDBObject obj = new BasicDBObject();
-                                obj.append("title", title).append("version", version).append("editor", name).append("rvted", revedlist);
-                                dbCollection5.insert(obj);
                             }
                             System.out.println(title + " : " + version);
                         }
@@ -243,17 +239,17 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                 for (int p = 0; p < yoyaku.size(); p++) {
                     if (delmap.containsKey(yoyaku.get(p))) {
                         List<DelPos> list = delmap.get(yoyaku.get(p));
-                        DelPos pos = new DelPos(version, tmp, b, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
+                        DelPos pos = new DelPos(version, tmp, a, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
                         list.add(pos);
                     } else {
                         List<DelPos> list = new LinkedList<DelPos>();
-                        DelPos pos = new DelPos(version, tmp, b, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
+                        DelPos pos = new DelPos(version, tmp, a, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
                         list.add(pos);
                         delmap.put(yoyaku.get(p), list);
                     }
                 }
                 whowrite.add(prevwrite.getWikitext().get(b),prevwrite.getEditorList().get(b),prevwrite.getVerlist().get(b));
-                tmp = b;
+                tmp = a;
                 a++;
                 b++;
             }
@@ -313,47 +309,47 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                         int shita = delpos.getshita();//下で
                         int preue = delpos.getue();
                         int preshita = delpos.getshita();
-                        if (version != delpos.getVersion()) {
-                            for (int x = delpos.getVersion() - 1; x < version; x++) {//矛盾が出ないか確かめる
-                                int a = 0;
-                                int b = 0;
-                                int tmpue = preue;
-                                int tmpshita = preshita;
-                                Boolean isbreak = false;
-                                for (int y = 0; y < difflist.get(x).size(); y++) {
-                                    String type = difflist.get(x).get(y);
-                                    if (type.equals("+")) {
-                                        tmpue++;
-                                        tmpshita++;
-                                        a++;
-                                    } else if (type.equals("-")) {
-                                        b++;
-                                        tmpue--;
-                                        tmpshita--;
-                                    } else if (type.equals("|")) {
-                                        if (b <= preue) {
-                                            ue = tmpue;
-                                        }
-                                        if (b >= preshita) {
-                                            shita = tmpshita;
-                                            isbreak = true;
-                                            break;
-                                        }
-                                        a++;
-                                        b++;
+                        for (int x = delpos.getVersion(); x < version; x++) {//矛盾が出ないか確かめる
+                            int a = 0;
+                            int b = 0;
+                            int tmpue = preue;
+                            int tmpshita = preshita;
+                            ue=0;
+                            Boolean isbreak = false;
+                            for (int y = 0; y < difflist.get(x).size(); y++) {
+                                String type = difflist.get(x).get(y);
+                                if (type.equals("+")) {
+                                    tmpue++;
+                                    tmpshita++;
+                                    a++;
+                                } else if (type.equals("-")) {
+                                    b++;
+                                    tmpue--;
+                                    tmpshita--;
+                                } else if (type.equals("|")) {
+                                    if (b <= preue) {
+                                        ue = tmpue;
                                     }
+                                    if (b >= preshita) {
+                                        shita = tmpshita;
+                                        isbreak = true;
+                                        break;
+                                    }
+                                    a++;
+                                    b++;
                                 }
-                                if (!isbreak) {
-                                    shita = a;
-                                }
-                                preue = ue;
-                                preshita = shita;
                             }
-                            delpos.setShita(shita);
-                            delpos.setUe(ue);
-                            delpos.setVersion(version);
+                            if (!isbreak) {
+                                shita = a;
+                            }
+                            preue = ue;
+                            preshita = shita;
                         }
-                        if (term.pos > ue && term.pos < shita) {
+                        delpos.setShita(shita);
+                        delpos.setUe(ue);
+                        delpos.setVersion(version);
+
+                        if (term.getPos() > ue && term.getPos() < shita) {
                             int cc = 1;
                             delpos.setRevert(version);
                             if (editmap.containsKey(delpos.getOriversion())) {
