@@ -162,6 +162,8 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                         List<DelPos> lisdel = delposmap.get(entry.getKey());
                                         for (DelPos del : lisdel) {
                                             delmap.get(del.getTerm()).remove(del);
+                                            //term.revertterm(del);
+                                            //whowrite.revert(term.getPos(), delpos.getOriversion(), delpos.getDelededitor());
                                         }
                                     }
                                     BasicDBObject obj = new BasicDBObject();
@@ -305,33 +307,27 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                     if (delpos.getOriversion() < (version - 20)) {
                         i.remove();
                     } else {
-                        int ue = 0;//文章の上と
+                        int ue = delpos.getue();//文章の上と
                         int shita = delpos.getshita();//下で
                         int preue = delpos.getue();
                         int preshita = delpos.getshita();
                         for (int x = delpos.getVersion(); x < version; x++) {//矛盾が出ないか確かめる
                             int a = 0;
                             int b = 0;
-                            int tmpue = preue;
-                            int tmpshita = preshita;
                             ue=0;
                             Boolean isbreak = false;
                             for (int y = 0; y < difflist.get(x).size(); y++) {
                                 String type = difflist.get(x).get(y);
                                 if (type.equals("+")) {
-                                    tmpue++;
-                                    tmpshita++;
                                     a++;
                                 } else if (type.equals("-")) {
                                     b++;
-                                    tmpue--;
-                                    tmpshita--;
                                 } else if (type.equals("|")) {
                                     if (b <= preue) {
-                                        ue = tmpue;
+                                        ue = a;
                                     }
                                     if (b >= preshita) {
-                                        shita = tmpshita;
+                                        shita = a;
                                         isbreak = true;
                                         break;
                                     }
@@ -363,8 +359,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                 delposlist.add(delpos);
                                 delposmap.put(delpos.getOriversion(), delposlist);
                             }
-                            term.revertterm(delpos);
-                            whowrite.revert(term.getPos(), delpos.getOriversion(), delpos.getDelededitor());
+
                             //System.out.println("delrev:" + term.getTerm() + version + " " + delpos.getOriversion());
                             //i.remove();
                             return;
