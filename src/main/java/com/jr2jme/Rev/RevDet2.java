@@ -141,26 +141,26 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             text=reader.getElementText();
                             //System.out.println(text);
                             //List<Future<List<String>>> futurelist = new ArrayList<Future<List<String>>>(NUMBER+1);
-                            List<String> current_text=kaiseki(text);
+                            List<String> current_text=kaiseki(text);//形態素解析
                             Levenshtein3 d = new Levenshtein3();
-                            List<String> diff = d.diff(prev_text, current_text);
+                            List<String> diff = d.diff(prev_text, current_text);//差分（Wu）
                             List<InsTerm> instermlist = new ArrayList<InsTerm>();
                             WhoWrite whowrite = new WhoWrite();
                             List<String> edlist = new ArrayList<String>();
                             Map<Integer,Integer> editmap = new HashMap<Integer, Integer>();
                             Map<Integer,List<DelPos>> delposmap = new HashMap<Integer, List<DelPos>>();
-                            diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,editlist,prevwrite,editmap,prev_text,delmap,difflist,delposmap);
+                            diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,editlist,prevwrite,editmap,prev_text,delmap,difflist,delposmap);//いろいろやる
                             prev_text=current_text;
                             prevwrite = whowrite;
                             if(version>22){
-                                difflist.set(version-22,new LinkedList<String>());
+                                difflist.set(version-22,new LinkedList<String>());//メモリ削減？のため
                             }
 
-                            for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){
+                            for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){//元にもどした単語数が一緒のときリバート
                                 if(entry.getValue()==editlist.get(entry.getKey()-1)){
                                     if(delposmap.containsKey(entry.getKey())) {
                                         List<DelPos> lisdel = delposmap.get(entry.getKey());
-                                        for (DelPos del : lisdel) {
+                                        for (DelPos del : lisdel) {//リバートだったら削除のマップから消す
                                             delmap.get(del.getTerm()).remove(del);
                                             //term.revertterm(del);
                                             //whowrite.revert(term.getPos(), delpos.getOriversion(), delpos.getDelededitor());
@@ -204,10 +204,10 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
 
     }
 
-    public static void diffroop(List<String> diff, List<String>edlist,String name,WhoWrite whowrite,List<String> current_text,int version,List<InsTerm> instermlist,List<Integer>editlist,WhoWrite prevwrite,Map<Integer,Integer>editmap,List<String> prev_text,Map<String,List<DelPos>>delmap,List<List<String>> difflist,Map<Integer,List<DelPos>> delposmap){
+    public static void diffroop(List<String> diff, List<String>edlist,String name,WhoWrite whowrite,List<String> current_text,int version,List<InsTerm> instermlist,List<Integer>editlist,WhoWrite prevwrite,Map<Integer,Integer>editmap,List<String> prev_text,Map<String,List<DelPos>>delmap,List<List<String>> difflist,Map<Integer,List<DelPos>> delposmap){//差分に対する処理をとりあえずすべて突っ込んだもの
         int a=0;
         int b=0;
-        int edit=0;
+        int edit=0;//編集距離
         int tmp=0;
         List<String> yoyaku = new ArrayList<String>();
         List<String> yoyakued = new ArrayList<String>();
