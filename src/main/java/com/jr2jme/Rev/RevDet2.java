@@ -12,7 +12,6 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import java.io.*;
 import java.net.UnknownHostException;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -40,7 +39,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         }
         assert mongo != null;
         DB db=mongo.getDB("revexp1");//1単語ごとにリバートか判定して消していく
-        DBCollection dbCollection5=db.getCollection("Revert4");
+        DBCollection dbCollection5=db.getCollection("Revert5");
         Set<String> AimingArticle = fileRead("input.txt");
         XMLStreamReader reader = null;
         BufferedInputStream stream = null;
@@ -52,19 +51,14 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
             sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
             Boolean inrev = false;
             Boolean incon = false;
-            String comment = "";
             String title = "";
             String name = "";
-            Date date = null;
             String text;
 
             int version = 0;
-            int id = 0;
             Boolean isAimingArticle = false;
             assert reader != null;
             List<String> prev_text = new ArrayList<String>();
-            int tail=0;
-            int head;
             Map<String,List<DelPos>> delmap = new HashMap<String, List<DelPos>>();
             List<List<String>> difflist = new ArrayList<List<String>>();
             WhoWrite prevwrite=new WhoWrite();
@@ -85,10 +79,9 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                         if (title.equals("エジプト")) {/*AimingArticle.contains(title)*/
                             //logger.config(title);
                             version = 0;
-                            tail = 0;
                             BasicDBObject obj = new BasicDBObject();
                             obj.append("title", title);
-                            DBCursor cur = dbCollection5.find(obj).limit(1);
+                            DBCursor cur = dbCollection5.find(obj).limit(1);//被らないように見る
                             if(!cur.hasNext()){
                                 isAimingArticle = true;
                             }
@@ -110,20 +103,20 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                         }
                         if ("id".equals(reader.getName().getLocalPart())) {
                             if (inrev && !incon) {
-                                id = Integer.valueOf(reader.getElementText());
+                                //id = Integer.valueOf(reader.getElementText());
                             }
                         }
                         if ("comment".equals(reader.getName().getLocalPart())) {
-                            comment = reader.getElementText();
+                            //comment = reader.getElementText();
 
                         }
                         if ("timestamp".equals(reader.getName().getLocalPart())) {
                             //System.out.println(reader.getElementText());
-                            try {
-                                date = sdf.parse(reader.getElementText());
+                            /*try {
+                                //date = sdf.parse(reader.getElementText());
                             } catch (ParseException e) {
                                 e.printStackTrace();
-                            }
+                            }*/
                         }
 
                         if ("ip".equals(reader.getName().getLocalPart())) {
@@ -144,21 +137,20 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             List<String> current_text=kaiseki(text);//形態素解析
                             Levenshtein3 d = new Levenshtein3();
                             List<String> diff = d.diff(prev_text, current_text);//差分（Wu）
-                            List<InsTerm> instermlist = new ArrayList<InsTerm>();
-                            WhoWrite whowrite = new WhoWrite();
-                            List<String> edlist = new ArrayList<String>();
-                            Map<Integer,Integer> editmap = new HashMap<Integer, Integer>();
-                            Map<Integer,List<DelPos>> delposmap = new HashMap<Integer, List<DelPos>>();
-                            diffroop(diff,edlist,name,whowrite,current_text,version,instermlist,editlist,prevwrite,editmap,prev_text,delmap,difflist,delposmap);//いろいろやる
-                            prev_text=current_text;
-                            prevwrite = whowrite;
+                            List<InsTerm> instermlist = new ArrayList<InsTerm>();//記事誰がどこを書いたか
+                            WhoWrite whowrite = new WhoWrite();//なんだっけ？たぶん
+                            Map<Integer,Integer> editmap = new HashMap<Integer, Integer>();//リバートした距離の記録
+                            Map<Integer,List<DelPos>> delposmap = new HashMap<Integer, List<DelPos>>();//リバートしたときにリストから消す
+                            diffroop(diff,name,whowrite,current_text,version,instermlist,editlist,prevwrite,editmap,prev_text,delmap,difflist,delposmap);//いろいろやる
+                            prev_text=current_text;//差分とかようひとつまえ
+                            prevwrite = whowrite;//だれがどこを書いたか？
                             if(version>22){
                                 difflist.set(version-22,new LinkedList<String>());//メモリ削減？のため
                             }
 
                             for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){//元にもどした単語数が一緒のときリバート
                                 if(entry.getValue()==editlist.get(entry.getKey()-1)){
-                                    if(delposmap.containsKey(entry.getKey())) {
+                                    if(delposmap.containsKey(entry.getKey())) {//削除を追加していたら
                                         List<DelPos> lisdel = delposmap.get(entry.getKey());
                                         for (DelPos del : lisdel) {//リバートだったら削除のマップから消す
                                             delmap.get(del.getTerm()).remove(del);
@@ -167,7 +159,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                         }
                                     }
                                     BasicDBObject obj = new BasicDBObject();
-                                    obj.append("title", title).append("version", version).append("editor", name).append("rvted", entry.getKey());
+                                    obj.append("title", title).append("version", version).append("editor", name).append("rvted", entry.getKey());//DB書き込み
                                     dbCollection5.insert(obj);
                                 }
                             }
@@ -204,7 +196,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
 
     }
 
-    public static void diffroop(List<String> diff, List<String>edlist,String name,WhoWrite whowrite,List<String> current_text,int version,List<InsTerm> instermlist,List<Integer>editlist,WhoWrite prevwrite,Map<Integer,Integer>editmap,List<String> prev_text,Map<String,List<DelPos>>delmap,List<List<String>> difflist,Map<Integer,List<DelPos>> delposmap){//差分に対する処理をとりあえずすべて突っ込んだもの
+    public static void diffroop(List<String> diff, String name,WhoWrite whowrite,List<String> current_text,int version,List<InsTerm> instermlist,List<Integer>editlist,WhoWrite prevwrite,Map<Integer,Integer>editmap,List<String> prev_text,Map<String,List<DelPos>>delmap,List<List<String>> difflist,Map<Integer,List<DelPos>> delposmap){//差分に対する処理をとりあえずすべて突っ込んだもの
         int a=0;
         int b=0;
         int edit=0;//編集距離
@@ -215,16 +207,16 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         difflist.add(diff);
         for (String type : diff) {
             if (type.equals("+")) {
-                edlist.add(name);
-                whowrite.add(current_text.get(a),name,version);
-                instermlist.add(new InsTerm(current_text.get(a), a, name));
-                delrevdet(new InsTerm(current_text.get(a), a, name), delmap, version, difflist, editmap, whowrite,delposmap);
+                //edlist.add(name);//なんだこれ？
+                whowrite.add(current_text.get(a),name,version);//誰がどこを書いたか あってるはず
+                instermlist.add(new InsTerm(current_text.get(a), a, name));//追加された単語と位置のリスト
+                delrevdet(new InsTerm(current_text.get(a), a, name), delmap, version, difflist, editmap, whowrite,delposmap);//追加が差し戻しかどうか
                 edit++;
                 a++;
             } else if (type.equals("-")) {
-                yoyakued.add(prevwrite.getEditorList().get(b));
+                yoyakued.add(prevwrite.getEditorList().get(b));//下待ち
                 yoyakuver.add(prevwrite.getVerlist().get(b));
-                if(version-prevwrite.getVerlist().get(b)<21) {
+                if(version-prevwrite.getVerlist().get(b)<21) {//削除は絶対差し戻し
                     int cc = 1;
                     if (editmap.containsKey(prevwrite.getVerlist().get(b))) {
                         cc = editmap.get(prevwrite.getVerlist().get(b)) + 1;
@@ -238,8 +230,8 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                 //whowrite.delete(b,version);//追加した単語には位置とかいろいろ情報あって分かるので適当にやる
                 b++;
             } else if (type.equals("|")) {
-                for (int p = 0; p < yoyaku.size(); p++) {
-                    if (delmap.containsKey(yoyaku.get(p))) {
+                for (int p = 0; p < yoyaku.size(); p++) {//これ，何回もリスト追加することになってる バグ 多分直した
+                    if (delmap.containsKey(yoyaku.get(p))) {//削除マップに追加
                         List<DelPos> list = delmap.get(yoyaku.get(p));
                         DelPos pos = new DelPos(version, tmp, a, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
                         list.add(pos);
@@ -250,6 +242,10 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                         delmap.put(yoyaku.get(p), list);
                     }
                 }
+                yoyaku=new ArrayList<String>();
+                yoyakuver=new ArrayList<Integer>();
+                yoyakued=new ArrayList<String>();
+
                 whowrite.add(prevwrite.getWikitext().get(b),prevwrite.getEditorList().get(b),prevwrite.getVerlist().get(b));
                 tmp = a;
                 a++;
