@@ -39,7 +39,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         }
         assert mongo != null;
         DB db=mongo.getDB("revexp1");//1単語ごとにリバートか判定して消していく
-        DBCollection dbCollection5=db.getCollection("Revert6");
+        DBCollection dbCollection5=db.getCollection("Revert8");
         Set<String> AimingArticle = fileRead("input.txt");
         XMLStreamReader reader = null;
         BufferedInputStream stream = null;
@@ -149,7 +149,11 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                             }
 
                             for(Map.Entry<Integer,Integer> entry:editmap.entrySet()){//元にもどした単語数が一緒のときリバート
-                                if(entry.getValue()==editlist.get(entry.getKey()-1)){
+                                if(version==707){
+                                    System.out.println((entry.getValue()));
+                                    System.out.println(editlist.get(entry.getKey()-1));
+                                }
+                                if(entry.getValue().equals(editlist.get(entry.getKey() - 1))){
                                     if(delposmap.containsKey(entry.getKey())) {//削除を追加していたら
                                         List<DelPos> lisdel = delposmap.get(entry.getKey());
                                         for (DelPos del : lisdel) {//リバートだったら削除のマップから消す
@@ -157,6 +161,10 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                                             //term.revertterm(del);
                                             //whowrite.revert(term.getPos(), delpos.getOriversion(), delpos.getDelededitor());
                                         }
+                                    }
+                                    if(version==707){
+                                        System.out.println((entry.getValue()));
+                                        System.out.println(editlist.get(entry.getKey()-1));
                                     }
                                     BasicDBObject obj = new BasicDBObject();
                                     obj.append("title", title).append("version", version).append("editor", name).append("rvted", entry.getKey());//DB書き込み
@@ -225,9 +233,6 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                 }
                 yoyaku.add(prev_text.get(b));
                 edit++;
-                //System.out.println(prev_text.get(b));//リバートされるかもしれないリストに突っ込む準備
-                //delterm.add(futurelist.get(c).get().get(a));
-                //whowrite.delete(b,version);//追加した単語には位置とかいろいろ情報あって分かるので適当にやる
                 b++;
             } else if (type.equals("|")) {
                 for (int p = 0; p < yoyaku.size(); p++) {//これ，何回もリスト追加することになってる バグ 多分直した
@@ -252,6 +257,18 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                 b++;
             }
 
+        }
+        for (int p = 0; p < yoyaku.size(); p++) {//これ，何回もリスト追加することになってる バグ 多分直した
+            if (delmap.containsKey(yoyaku.get(p))) {//削除マップに追加
+                List<DelPos> list = delmap.get(yoyaku.get(p));
+                DelPos pos = new DelPos(version, tmp, a, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
+                list.add(pos);
+            } else {
+                List<DelPos> list = new LinkedList<DelPos>();
+                DelPos pos = new DelPos(version, tmp, a, yoyaku.get(p), yoyakuver.get(p), yoyakued.get(p));
+                list.add(pos);
+                delmap.put(yoyaku.get(p), list);
+            }
         }
         editlist.add(edit);
 
