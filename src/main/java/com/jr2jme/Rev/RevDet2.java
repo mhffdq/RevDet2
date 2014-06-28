@@ -39,7 +39,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         }
         assert mongo != null;
         DB db=mongo.getDB("revexp1");//1単語ごとにリバートか判定して消していく
-        DBCollection dbCollection5=db.getCollection("Revert5");
+        DBCollection dbCollection5=db.getCollection("Revert6");
         Set<String> AimingArticle = fileRead("input.txt");
         XMLStreamReader reader = null;
         BufferedInputStream stream = null;
@@ -200,7 +200,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
         int a=0;
         int b=0;
         int edit=0;//編集距離
-        int tmp=0;
+        int tmp=-1;
         List<String> yoyaku = new ArrayList<String>();
         List<String> yoyakued = new ArrayList<String>();
         List<Integer> yoyakuver = new ArrayList<Integer>();
@@ -310,7 +310,7 @@ public class RevDet2 {//Wikipediaのログから差分をとって誰がどこ�
                         for (int x = delpos.getVersion(); x < version; x++) {//矛盾が出ないか確かめる
                             int a = 0;
                             int b = 0;
-                            ue=0;
+                            ue=-1;
                             Boolean isbreak = false;
                             for (int y = 0; y < difflist.get(x).size(); y++) {
                                 String type = difflist.get(x).get(y);
